@@ -15,6 +15,7 @@ const productsRoutes = require("./routes/products");
 const usersRoutes = require("./routes/users");
 const cloudinaryRoutes = require("./routes/cloudinary.js");
 const shoppingCartRoutes = require("./routes/shoppingCart.js");
+const checkoutRoutes = require("./routes/checkout");
 
 // create an instance of express app
 const app = express();
@@ -86,6 +87,7 @@ app.use("/products", productsRoutes);
 app.use("/users", usersRoutes);
 app.use("/cloudinary", cloudinaryRoutes);
 app.use("/cart", shoppingCartRoutes);
+app.use("/checkout", checkoutRoutes);
 
 // register a csrf partial so we can reuse the same template to add csrf token into a form
 hbs.handlebars.registerPartial(
