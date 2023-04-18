@@ -41,7 +41,20 @@ app.use(
 );
 
 // enable csrf
-app.use(csurf());
+// app.use(csurf());
+const csurfInstance = csurf();
+// proxy middleware
+// if the url is process_payment, don't use csurf
+// other use csurf as normal
+app.use(function(req,res,next){
+  if (req.url === "/checkout/process_payment") {
+    next(); // move on to the next middleware
+  } else {
+    // for all other urls that is not the webhook,
+    // invoke csurf as usual
+    csurfInstance(req,res,next);
+  }
+})
 
 // Note that the urlencoded middleware needs to come first before
 // the csurf middleware so that the urlencoded can parse the form data
@@ -61,7 +74,13 @@ app.use(function (req, res, next) {
   res.locals.user = req.session.user;
 
   // share the csrf token to frontend
-  res.locals.csrfToken = req.csrfToken();
+  if (req.csrfToken) {
+    // because there are cases when csurf is not activated
+    // like in the case for the webhook
+    // we cannot presume that req.csrfToken exists
+    res.locals.csrfToken = req.csrfToken();
+  }
+
 
   // share the cloudinary configs
   res.locals.cloudinaryName = process.env.CLOUDINARY_NAME;

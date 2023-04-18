@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const CartService = require('../services/cart');
+const { checkIfAuthenticated } = require('../middlewares');
 const Stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-router.get('/', async function (req, res) {
+router.get('/', checkIfAuthenticated,  async function (req, res) {
     // get the content of our shopping cart
     const cart = new CartService(req.session.user.id);
 
@@ -49,7 +50,8 @@ router.get('/', async function (req, res) {
         success_url: process.env.STRIPE_SUCCESS_URL,
         cancel_url: process.env.STRIPE_CANCEL_URL,
         metadata:{
-            orders: JSON.stringify(meta)
+            orders: JSON.stringify(meta),
+
         }
     }    
 
@@ -68,5 +70,39 @@ router.get('/success', async function(req,res){
 router.get('/error', async function(req,res){
     res.send("Payment declined");
 })
+
+// the webhook has to be a router.post because Stripe's requirements
+// the URL is up to us
+// we cannot use express.json() for the webhook for some reasons
+router.post("/process_payment", express.raw({type:"application/json"}) , async function(req,res){
+    const payload = req.body;  // extract the payload from req.body (i.e what stripe is sending us)
+    const endpointSecret = process.env.STRIPE_ENDPOINT_SECRET; // use for verifying if the payload comes from Stripe
+    const sigHeader = req.headers["stripe-signature"]; // a hash of the payload using STRIPE_ENDPOINT_SECRET
+    let event = null; // to store the Stripe event (to be determined later)
+    try {
+        // determine what the event
+        event = Stripe.webhooks.constructEvent(payload, sigHeader, endpointSecret);
+        if (event.type === "checkout.session.completed") {
+            const stripeSession = event.data.object;
+            console.log(stripeSession);
+            // retriving the order data
+            const orderData = JSON.parse(stripeSession.metadata.orders);
+            console.log(orderData);
+
+        } 
+        res.status(200);
+        res.json({
+            'message': "success"
+        })
+    } catch (e) {
+        // if there's an error when we attempt an event, we inform stripe there's an error
+        res.status(500);
+        res.json({
+            'error': e.message
+        })
+        console.log(e.message);
+    }
+
+});
 
 module.exports = router;
